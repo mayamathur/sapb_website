@@ -118,11 +118,11 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                              
                                                       ),
                                                       column(width=10,
-                                                             actionButton(inputId = 'calibrated_calculate', label='Analyze')
+                                                             actionButton(inputId = 'analyze_button', label='Analyze')
                                                       ) 
                                   ),
                                   shinydashboard::box(width=6,
-                                                      title= h4(strong("Specify sensitivity parameters and thresholds")),
+                                                      title= h4(strong("Specify sensitivity parameters and methods")),
                                                       
                                                       
                                                       column( width=6,
@@ -134,14 +134,25 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                                   shiny_iconlink() %>%
                                                                     bs_embed_popover(title = 'The attenuated value to which to shift the point estimate and its confidence interval. Should be specified on the same scale as the point estimates (e.g., if the estimates are on the log-relative risk scale, then so should q).')),
                                                               
+                                                              selectInput('model', 'Meta-analysis model', choices = c('Robust random-effects', 'Fixed-effect'), selected = 'Robust random-effects') %>%
+                                                                shinyInput_label_embed(
+                                                                  shiny_iconlink() %>%
+                                                                    bs_embed_popover(title = 'xxx')
+                                                                ),
+                                                              
                                                               
                                                               selectInput('favored_direction', 'Direction of effects favored by \npublication bias', choices = c('Positive', 'Negative'), selected = 'Positive') %>%
                                                                 shinyInput_label_embed(
                                                                   shiny_iconlink() %>%
                                                                     bs_embed_popover(title = '"Positive" if you would like to assume that publication bias favors significant positive-signed estimates; "negative" if you would like to assume that publication bias favors significant negative-signed estimates.')
-                                                                ),
+                                                                )
                                                               
                                                               
+                                                              
+                                                             
+                                                      ), # closes column
+                                                      
+                                                      column( width=6,
                                                               
                                                               numericInput('eta', 'Hypothetical publication bias severity', NA, min = 1, max = 200, step = 0.01) %>%
                                                                 shinyInput_label_embed(
@@ -151,9 +162,6 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                               
                                                               
                                                               checkboxInput( 'return_worst_meta', 'Also show worst-case publication bias', TRUE ),                                                           
-                                                      ), # closes column
-                                                      
-                                                      column( width=6,
                                                               
                                                               numericInput('alpha_select', 'Two-sided p-value at which publication probability is assumed to change', 0.05, min = 0, max = 1, step = 0.01) %>%
                                                                 
@@ -172,7 +180,7 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                 
                                 ### results text ###
                                 
-                                wellPanel( textOutput("calibrated_results_prop"), span( textOutput("calibrated_text1") )
+                                wellPanel( textOutput("results1"), span( textOutput("text1") )
                                            # for "i" information icon, not currently in use
                                            #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
                                 ),
