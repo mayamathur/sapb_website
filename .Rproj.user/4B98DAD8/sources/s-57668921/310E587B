@@ -10,14 +10,16 @@
     "source_on_save": false,
     "relative_order": 1,
     "properties": {
-        "tempName": "Untitled1"
+        "tempName": "Untitled1",
+        "cursorPosition": "704,28",
+        "scrollLine": "702"
     },
     "folds": "",
-    "lastKnownWriteTime": 1608941833,
+    "lastKnownWriteTime": 1608942131,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1608941833019,
+    "last_content_update": 1608942131371,
     "read_only": false,
     "read_only_alternatives": []
 }

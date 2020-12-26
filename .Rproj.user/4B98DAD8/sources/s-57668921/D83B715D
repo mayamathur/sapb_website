@@ -3,7 +3,7 @@
     "path": "~/Dropbox/Personal computer/Independent studies/Permanent websites/SAPB website/Git/server.R",
     "project_path": "server.R",
     "type": "r_source",
-    "hash": "3916222277",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1608941838275.0,
@@ -11,15 +11,15 @@
     "relative_order": 2,
     "properties": {
         "tempName": "Untitled1",
-        "cursorPosition": "0,1",
-        "scrollLine": "0"
+        "cursorPosition": "523,28",
+        "scrollLine": "512"
     },
     "folds": "",
-    "lastKnownWriteTime": 1608941855,
+    "lastKnownWriteTime": 1608942128,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1608941855492,
+    "last_content_update": 1608942128666,
     "read_only": false,
     "read_only_alternatives": []
 }
