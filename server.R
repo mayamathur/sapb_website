@@ -3,7 +3,7 @@ source("startup.R")
 
 function(input, output, session) {
   
-
+  
   # read in uploaded dataset
   mydata <- reactive({
     inFile <- input$dat
@@ -24,6 +24,8 @@ function(input, output, session) {
   
   # collect user's input every time the "Analyze" button is pressed
   calibrated_output <- observeEvent(input$analyze_button, {
+    
+
     ### isolate on parameters to not update until action button pressed again
     dat = isolate(mydata())
     yi.name = isolate(input$yi_name)
@@ -35,7 +37,7 @@ function(input, output, session) {
     eta = isolate(input$eta)
     return.worst.meta = isolate(input$return_worst_meta)
     alpha.select = isolate(input$alpha_select)
-
+    
     # process the input
     if ( favored.direction == "Positive" ) favor.positive = TRUE
     if ( favored.direction == "Negative" ) favor.positive = FALSE
@@ -43,19 +45,53 @@ function(input, output, session) {
     if ( model == "Robust random-effects" ) model = "robust"
     if ( model == "Fixed-effect" ) model = "fixed"
     
+    ##### Check for required input #####
+    # if ( yi.name == "" ) stop("Must provide yi.name (from step1)")
+    # if ( vi.name == "" ) stop("Must provide yi.name (fromstep1)")]
+
+
+
+    ##### Call corrected_meta #####
     res_corrected_meta <- reactive({
-      withProgress(message="Calculating...", value=1,{
+      withProgress(message="Calculating corrected_meta...", value=1,{
         
         withCallingHandlers({
           shinyjs::html("corrected_meta_messages", "")
           
-          corrected_meta( yi = dat[[yi.name]],
-                          vi = dat[[vi.name]],
-                          eta = eta,
-                          model = model,
-                          selection.tails = 1,  # @could make this a user-specified option
-                          favor.positive = favor.positive,
-                          alpha.select = alpha.select)
+          # when the textInput boxes are empty, they default to ""
+          if ( is.null(dat) |
+               yi.name == "" |
+               vi.name == "" | 
+               is.na(eta) ) {
+            stop( paste("To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the hypothetical publication bias severity, (", '\u03b7', ")", sep = "") )
+          }
+          
+          if ( !yi.name %in% names(dat) ) stop( paste("There is no variable called ", yi.name, " in the dataset", sep = "" ) )
+          
+          if ( !vi.name %in% names(dat) ) stop( paste("There is no variable called ", vi.name, " in the dataset", sep = "" ) )
+          
+          if ( clustervar.name == "" ) {
+            warning("This analysis assumes no clusters becuase you did not provide a name for a cluster variable.")
+            cluster = 1:nrow(dat)
+          } else {
+            
+            if ( !clustervar.name %in% names(dat) ) stop( paste("There is no variable called ", clustervar.name, " in the dataset", sep = "" ) )
+            
+            cluster = dat[[clustervar.name]]
+          }
+
+          #@haven't tested with clusters
+            
+            corrected_meta( yi = dat[[yi.name]],
+                            vi = dat[[vi.name]],
+                            eta = eta,
+                            model = model,
+                            # @introduce this later
+                            clustervar = cluster,
+                            selection.tails = 1,  # @could make this a user-specified option
+                            favor.positive = favor.positive,
+                            alpha.select = alpha.select)
+      
           
         },
         message = function(m){
@@ -67,10 +103,52 @@ function(input, output, session) {
         )
         
       }) ## closes withProgress
+    }) ## closes res_corrected_meta output
+    
+
+    
+    ##### Call svalue #####
+    res_svalue <- reactive({
+      withProgress(message="Calling svalue()...", value=1,{
+        
+        withCallingHandlers({
+          shinyjs::html("svalue_messages", "")
+          
+          # when the textInput boxes are empty, they default to ""
+          if ( is.null(dat) |
+               yi.name == "" |
+               vi.name == "" | 
+               is.na(q) ) {
+            stop( "To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the threshold (q)" )
+          }
+          
+          svalue( yi = dat[[yi.name]],
+                  vi = dat[[vi.name]],
+                  q = q,
+                  # @introduce this later
+                  #clustervar = clustervar,
+                  model = model,
+                  favor.positive = favor.positive,
+                  alpha.select = alpha.select,
+                  return.worst.meta = TRUE )
+          
+        },
+        message = function(m){
+          shinyjs::html(id="svalue_messages", html=paste0(m$message, '<br>'), add=TRUE)
+        },
+        warning = function(m){
+          shinyjs::html(id="svalue_messages", html=paste0(m$message, '<br>'), add=TRUE)
+        }
+        )
+        
+      }) ## closes withProgress
     }) ## closes calibrated_cm output
     
-    # text from corrected_meta
-    output$text1 = renderText({
+    
+    
+    ##### Organize corrected_meta output into string #####
+    #bm1
+    output$num.results.cm = renderText({
       
       res <- req( res_corrected_meta() )
       
@@ -78,48 +156,66 @@ function(input, output, session) {
       lo = round( as.numeric( res$lo ), 3 )
       hi = round( as.numeric( res$hi ), 3 )
       
-      
-      ##### Create String for UI #####
       string = paste( est, " (95% CI: ", lo, ", ", hi, ")", sep="" )
       return( string )
       
-    }) ## closes calibrated_text1
+    }) ## closes text.cm
     
-    #bm
+
+    ##### Organize svalue output into string #####
+    output$num.results.sval.est = renderText({
+      
+      res <- req( res_svalue() )
+      
+      # this is a string because could be "Not possible"
+      sval.est = res$stats$sval.est
+      
+      if ( sval.est == "Not possible" ){
+        
+        string = paste( "No amount of publication bias favoring significant ",
+                        tolower(input$favored_direction),
+                        " results could attenuate the point estimate to q = ",
+                        input$q,
+                        ". \n\nIn that sense, the meta-analysis is highly robust to publication bias.",
+                        sep = "")
+        
+      } else {
+        return( round( as.numeric(sval.est), 2) )
+      }
+
+    }) ## closes text.sval.est
     
-    # output$calibrated_text2 = renderText({
-    #   cm <- req(calibrated_cm())
-    #   
-    #   p = round( as.numeric(cm$Est[which(cm$Value=="Prop" )]), 3 )
-    #   Tmin = round( as.numeric(cm$Est[which(cm$Value=="Tmin" )]), 3 )
-    #   Tmin_lo = round( as.numeric(cm$CI.lo[which(cm$Value=="Tmin" )]), 3 )
-    #   Tmin_hi = round( as.numeric(cm$CI.hi[which(cm$Value=="Tmin" )]), 3 )
-    #   
-    #   
-    #   ##### Create String for UI #####
-    #   string_Tmin = ifelse(p < r, "The proportion of meaningfully strong effects is already less than or equal to r even with no confounding, so this metric does not apply. No confounding at all is required to make the specified shift.", paste( Tmin, " (95% CI: ", Tmin_lo, ", ", Tmin_hi, ")", sep="" ))
-    #   string_Tmin = ifelse(is.na(string_Tmin), "Cannot compute second two metrics without r. Returning only the proportion.", string_Tmin)
-    #   return( string_Tmin )
-    #   
-    # }) ## closes calibrated_text2
-    # 
-    # output$calibrated_text3 = renderText({
-    #   cm <- req(calibrated_cm())
-    #   
-    #   p = round( as.numeric(cm$Est[ which(cm$Value=="Prop") ]), 3 )
-    #   Gmin = round( as.numeric(cm$Est[ which(cm$Value=="Gmin") ]), 3 )
-    #   Gmin_lo = round( as.numeric(cm$CI.lo[ which(cm$Value=="Gmin") ]), 3 )
-    #   Gmin_hi = round( as.numeric(cm$CI.hi[ which(cm$Value=="Gmin") ]), 3 )
-    #   
-    #   
-    #   ##### Create String for UI #####
-    #   #bm
-    #   string_Gmin = ifelse(p < r, "The proportion of meaningfully strong effects is already less than or equal to r even with no confounding, so this metric does not apply. No confounding at all is required to make the specified shift.", paste( Gmin, " (95% CI: ", Gmin_lo, ", ", Gmin_hi, ")", sep="" ))
-    #   string_Gmin = ifelse(is.na(string_Gmin), "Cannot compute the second two metrics without r. Returning only the proportion.", string_Gmin)
-    #   return( string_Gmin )
-    #   
-    # }) ## closes calibrated_text3
     
+    output$num.results.sval.ci = renderText({
+      
+
+      res <- req( res_svalue() )
+      
+      # this is a string because could be "Not possible"
+      sval.ci = res$stats$sval.ci
+      
+      if ( sval.ci == "Not possible" ){
+        
+        string = paste( "No amount of publication bias favoring significant ",
+                        tolower(input$favored_direction),
+                        " results could attenuate the confidence interval to include q = ",
+                        input$q,
+                        ". \n\nIn that sense, the meta-analysis is highly robust to publication bias.",
+                        sep="")
+        
+      } else if ( sval.ci == "--" ) {
+        
+        string = paste( "The uncorrected confidence interval already contains ",
+                        input$q,
+                        ", so this metric does not apply.",
+                        sep = "" )
+      } else {
+        return( round( as.numeric(sval.ci), 2) )
+      }
+      
+    }) ## closes text.sval.ci
+    
+
     
   }) ## closes calibrated_output
   
@@ -174,8 +270,9 @@ function(input, output, session) {
   }) ## closes calibrated_plot
   
   
-  ### results text for calibrated Fixed sensitivity parameters tab
-  output$results1 = renderText({
+  #bm3
+  ### results text 
+  output$piped.interpretation.cm = renderText({
     paste( "Corrected meta-analysis estimate (assuming that significant ",
            tolower( input$favored_direction ),
            " results are ",
@@ -184,6 +281,31 @@ function(input, output, session) {
            sep = "" )
   })
   
+  
+  ### results text 
+  output$piped.interpretation.sval.est = renderText({
+    paste( "Factor by which publication bias would need to favor significant ",
+           tolower(input$favored_direction),
+           " results in order to ",
+           " reduce the meta-analysis estimate to ",
+           input$q,
+           ":", 
+           sep = "" )
+  })
+  
+  
+  ### results text 
+  output$piped.interpretation.sval.ci = renderText({
+    paste( "Factor by which publication bias would need to favor significant ",
+           tolower(input$favored_direction),
+           " results in order to ",
+           " shift the meta-analysis confidence interval to include ",
+           input$q,
+           ":", 
+           sep = "" )
+  })
+  
+  
   # output$calibrated_results_minbias = renderText({
   #   paste("Minimum bias factor (RR scale) to reduce to less than", input$calibrated_r, "the proportion of studies with population causal effects", input$calibrated_tail, input$calibrated_scale, "=", input$calibrated_q, ":")
   # })
@@ -191,6 +313,6 @@ function(input, output, session) {
   #   paste("Minimum confounding strength (RR scale) to reduce to less than", input$calibrated_r, "the proportion of studies with population causal effects", input$calibrated_tail, input$calibrated_scale, "=", input$calibrated_q, ":")
   # })
   
-
+  
   
 } ## closes server.R function

@@ -101,17 +101,17 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                                  shiny_iconlink() %>%
                                                                    bs_embed_popover(title = 'A csv file containing study-level point estimates and variance estimates')),
                                                              
-                                                             textInput('yi_name', "Name of variable in data containing studies' point estimates", placeholder = 'yi.name') %>%
+                                                             textInput('yi_name', "Name of variable in data containing studies' point estimates", placeholder = 'yi') %>%
                                                                shinyInput_label_embed(
                                                                  shiny_iconlink() %>%
                                                                    bs_embed_popover(title = "Point estimates and their variances should be on a scale that is suitable for meta-analysis and on which 0 represents no effect (e.g., log-ratios rather than ratios, Fisher's z rather than Pearson's r, etc.)")),
                                                              
-                                                             textInput('vi_name', "Name of variable in data containing studies' variance estimates", placeholder = 'vi.name') %>%
+                                                             textInput('vi_name', "Name of variable in data containing studies' variance estimates", placeholder = 'vi') %>%
                                                                shinyInput_label_embed(
                                                                  shiny_iconlink() %>%
                                                                    bs_embed_popover(title = "Name of variable in data containing studies' variance estimates")), 
                                                              
-                                                             textInput('clustervar_name', "Name of variable in data containing cluster indicator (optional)", placeholder = 'clustervar') %>%
+                                                             textInput('clustervar_name', "Name of variable in data containing cluster indicator (optional)", placeholder = 'paper') %>%
                                                                shinyInput_label_embed(
                                                                  shiny_iconlink() %>%
                                                                    bs_embed_popover(title = "A string or numeric variable with one entry per row. This variable's unique values should indicate unique clusters in the point estimates (e.g., representing journal articles that each contribute multiple estimates). If left blank, the analysis assumes all point estimates are independent."))
@@ -149,12 +149,12 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                               
                                                               
                                                               
-                                                             
+                                                              
                                                       ), # closes column
                                                       
                                                       column( width=6,
                                                               
-                                                              numericInput('eta', 'Hypothetical publication bias severity', NA, min = 1, max = 200, step = 0.01) %>%
+                                                              numericInput('eta', paste( 'Hypothetical publication bias severity (', '\u03b7', ')', sep = ''), NA, min = 1, max = 200, step = 0.01) %>%
                                                                 shinyInput_label_embed(
                                                                   shiny_iconlink() %>%
                                                                     bs_embed_popover(title = 'The number of times more likely an affirmative study is to be published than a nonaffirmative study. Used to adjust point estimate for specified amount of publication bias. \nWorst-case publication bias is when affirmative studies are essentially infinitely more likely to be published than nonaffirmative studies.')),
@@ -179,23 +179,46 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                 hr(),
                                 
                                 ### results text ###
-                                
-                                wellPanel( textOutput("results1"), span( textOutput("text1") )
-                                           # for "i" information icon, not currently in use
-                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                                ),
-                                wellPanel( textOutput("calibrated_results_minbias"), span( textOutput("calibrated_text2") )
-                                           # for "i" information icon, not currently in use
-                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                                ),
-                                wellPanel( textOutput("calibrated_results_minconf"), span( textOutput("calibrated_text3") )
+                                #bm2
+                                wellPanel( textOutput("piped.interpretation.cm"),
+                                           #span( htmlOutput("corrected_meta_messages"), style="color:red")
+                                           span( textOutput("num.results.cm") )
                                            # for "i" information icon, not currently in use
                                            #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
                                 ),
                                 
+                                #bm: want to have corrected_meta_messages appear here
+                                # doesn't even work if I just use textOutput("piped.interpretation.cm") in here...?
+                                #wellPanel(  ),
+                                
+                                
+                                
+                                
+                                wellPanel( textOutput("piped.interpretation.sval.est"), span( textOutput("num.results.sval.est") )
+                                           # for "i" information icon, not currently in use
+                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
+                                ),
+                                wellPanel( textOutput("piped.interpretation.sval.ci"), span( textOutput("num.results.sval.ci") )
+                                           # for "i" information icon, not currently in use
+                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
+                                ),
+                                
+                                ### warnings and messages captured from PublicationBias package
                                 mainPanel(
-                                  span( htmlOutput("calibrated_cm_messages"), style="color:red"), width = 8
+                                  span( htmlOutput("corrected_meta_messages"), style="color:red"),
+                                  width = 8
                                 ),
+                                
+                                
+                                # messages from svalue()
+                                # save as a placeholder, but not in use because svalue() has only one message
+                                #  it can issue (about CI already containing q), and the website handles this 
+                                #  in the piped results string
+                                
+                                # mainPanel(
+                                #   span( htmlOutput("svalue_messages"), style="color:red"),
+                                #   width = 8
+                                # ),
                                 
                                 hr(),
                                 
