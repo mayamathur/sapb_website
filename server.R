@@ -25,7 +25,7 @@ function(input, output, session) {
   # collect user's input every time the "Analyze" button is pressed
   calibrated_output <- observeEvent(input$analyze_button, {
     
-
+    
     ### isolate on parameters to not update until action button pressed again
     dat = isolate(mydata())
     yi.name = isolate(input$yi_name)
@@ -48,9 +48,9 @@ function(input, output, session) {
     ##### Check for required input #####
     # if ( yi.name == "" ) stop("Must provide yi.name (from step1)")
     # if ( vi.name == "" ) stop("Must provide yi.name (fromstep1)")]
-
-
-
+    
+    
+    
     ##### Call corrected_meta #####
     res_corrected_meta <- reactive({
       withProgress(message="Calculating corrected_meta...", value=1,{
@@ -79,19 +79,19 @@ function(input, output, session) {
             
             cluster = dat[[clustervar.name]]
           }
-
+          
           #@haven't tested with clusters
-            
-            corrected_meta( yi = dat[[yi.name]],
-                            vi = dat[[vi.name]],
-                            eta = eta,
-                            model = model,
-                            # @introduce this later
-                            clustervar = cluster,
-                            selection.tails = 1,  # @could make this a user-specified option
-                            favor.positive = favor.positive,
-                            alpha.select = alpha.select)
-      
+          
+          corrected_meta( yi = dat[[yi.name]],
+                          vi = dat[[vi.name]],
+                          eta = eta,
+                          model = model,
+                          # @introduce this later
+                          clustervar = cluster,
+                          selection.tails = 1,  # @could make this a user-specified option
+                          favor.positive = favor.positive,
+                          alpha.select = alpha.select)
+          
           
         },
         message = function(m){
@@ -105,7 +105,7 @@ function(input, output, session) {
       }) ## closes withProgress
     }) ## closes res_corrected_meta output
     
-
+    
     
     ##### Call svalue #####
     res_svalue <- reactive({
@@ -147,7 +147,6 @@ function(input, output, session) {
     
     
     ##### Organize corrected_meta output into string #####
-    #bm1
     output$num.results.cm = renderText({
       
       res <- req( res_corrected_meta() )
@@ -161,7 +160,7 @@ function(input, output, session) {
       
     }) ## closes text.cm
     
-
+    
     ##### Organize svalue output into string #####
     output$num.results.sval.est = renderText({
       
@@ -182,13 +181,13 @@ function(input, output, session) {
       } else {
         return( round( as.numeric(sval.est), 2) )
       }
-
+      
     }) ## closes text.sval.est
     
     
     output$num.results.sval.ci = renderText({
       
-
+      
       res <- req( res_svalue() )
       
       # this is a string because could be "Not possible"
@@ -215,7 +214,7 @@ function(input, output, session) {
       
     }) ## closes text.sval.ci
     
-
+    
     
   }) ## closes calibrated_output
   
@@ -254,7 +253,7 @@ function(input, output, session) {
         if ( model == "Robust random-effects" ) model = "robust"
         if ( model == "Fixed-effect" ) model = "fixed"
         
-
+        
         withCallingHandlers({
           shinyjs::html("calibrated_sens_plot_messages", "")
           
@@ -280,12 +279,12 @@ function(input, output, session) {
             
             cluster = dat[[clustervar.name]]
           }
- 
-
+          
+          
           if ( etaMax < etaMin ) stop("Lower limit must be less than upper limit")
           el = as.list( seq( etaMin, etaMax, .5 ) )
           
-    
+          
           # make the plot
           # get estimates at each value
           res.list = lapply( el, 
@@ -320,7 +319,7 @@ function(input, output, session) {
           
           # if removing ggplotly, need to also change renderPlotly above to renderPlot
           ggplot( ) +
-           
+            
             # null
             geom_hline( yintercept = 0, color = "black", lty = 2 ) +
             
@@ -332,12 +331,12 @@ function(input, output, session) {
             xlab( bquote( "Severity of hypothetical publication bias" ~ (eta) ) ) +
             ylab( "Corrected estimate" ) + 
             
-  
-            theme_classic()
             
-            # theme(axis.title = element_text(size=axis.label.size),
-            #       axis.text = element_text(size=axis.font.size) ) 
-
+            theme_classic()
+          
+          # theme(axis.title = element_text(size=axis.label.size),
+          #       axis.text = element_text(size=axis.font.size) ) 
+          
           
         },
         message = function(m){
@@ -359,48 +358,63 @@ function(input, output, session) {
   }) ## closes calibrated_plot
   
   
-  ### results text 
-  output$piped.interpretation.cm = renderText({
-    paste( "Corrected meta-analysis estimate (assuming that significant ",
-           tolower( input$favored_direction ),
-           " results are ",
-           input$eta,
-           " times more likely to be published): ",
-           sep = "" )
+  #bm
+  
+  ##### Reactive Interpretation Strings #####
+  # wait until Analyze button is clicked, then update the text string
+  # this is to avoid updating the string while the previous numerical results are still displayed,
+  #  before the new analysis has been performed
+  getPipedInterpretation1 = eventReactive(input$analyze_button, {
+        # avoid piping in "NA" if eta hasn't been filled in
+        etaString = ifelse( is.na(input$eta), "eta", input$eta )
+
+        paste( "Corrected meta-analysis estimate (assuming that significant ",
+               tolower( input$favored_direction ),
+               " results are ",
+               etaString,
+               " times more likely to be published): ",
+               sep = "" )
+  
+  })
+  output$pipedInterpretation1 = renderText({
+    getPipedInterpretation1()
   })
   
   
-  ### results text 
-  output$piped.interpretation.sval.est = renderText({
+  getPipedInterpretation2 = eventReactive(input$analyze_button, {
+    # avoid piping in "NA" if eta hasn't been filled in
+    qString = ifelse( is.na(input$q), "q", input$q )
+    
+    
     paste( "Factor by which publication bias would need to favor significant ",
            tolower(input$favored_direction),
            " results in order to ",
            " reduce the meta-analysis estimate to ",
-           input$q,
+           qString,
            ":", 
            sep = "" )
+    
+  })
+  output$pipedInterpretation2 = renderText({
+    getPipedInterpretation2()
   })
   
-  
-  ### results text 
-  output$piped.interpretation.sval.ci = renderText({
+  getPipedInterpretation3 = eventReactive(input$analyze_button, {
+    # avoid piping in "NA" if eta hasn't been filled in
+    qString = ifelse( is.na(input$q), "q", input$q )
+    
     paste( "Factor by which publication bias would need to favor significant ",
            tolower(input$favored_direction),
            " results in order to ",
            " shift the meta-analysis confidence interval to include ",
-           input$q,
+           qString,
            ":", 
            sep = "" )
+    
   })
-  
-  
-  # output$calibrated_results_minbias = renderText({
-  #   paste("Minimum bias factor (RR scale) to reduce to less than", input$calibrated_r, "the proportion of studies with population causal effects", input$calibrated_tail, input$calibrated_scale, "=", input$calibrated_q, ":")
-  # })
-  # output$calibrated_results_minconf = renderText({
-  #   paste("Minimum confounding strength (RR scale) to reduce to less than", input$calibrated_r, "the proportion of studies with population causal effects", input$calibrated_tail, input$calibrated_scale, "=", input$calibrated_q, ":")
-  # })
-  
-  
+  output$pipedInterpretation3 = renderText({
+    getPipedInterpretation3()
+  })
+
   
 } ## closes server.R function

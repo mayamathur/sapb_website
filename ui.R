@@ -179,8 +179,7 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                 hr(),
                                 
                                 ### results text ###
-                                #bm2
-                                wellPanel( textOutput("piped.interpretation.cm"),
+                                wellPanel( textOutput("pipedInterpretation1"),
                                            #span( htmlOutput("corrected_meta_messages"), style="color:red")
                                            span( textOutput("num.results.cm") )
                                            # for "i" information icon, not currently in use
@@ -194,11 +193,11 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                 
                                 
                                 
-                                wellPanel( textOutput("piped.interpretation.sval.est"), span( textOutput("num.results.sval.est") )
+                                wellPanel( textOutput("pipedInterpretation2"), span( textOutput("num.results.sval.est") )
                                            # for "i" information icon, not currently in use
                                            #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
                                 ),
-                                wellPanel( textOutput("piped.interpretation.sval.ci"), span( textOutput("num.results.sval.ci") )
+                                wellPanel( textOutput("pipedInterpretation3"), span( textOutput("num.results.sval.ci") )
                                            # for "i" information icon, not currently in use
                                            #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
                                 ),
