@@ -223,17 +223,19 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                 hr(),
                                 
                                 ### used for plot only:
+                                #bm4
                                 shinydashboard::box(width=6,
-                                                    title=h4(strong("Range of bias factors to show on plot")),
-                                                    numericInput('calibrated_Bmin', 'Lower limit of bias factor (on scale you specified)', 1, min=0, max=Inf, step=0.1) %>%
+                                                    title=h4(strong("Range of publication bias to show on plot")),
+                                                    numericInput('etaMin', paste( 'X-axis lower limit of publication bias severity (', '\u03b7', ')', sep = ''), 1, min=1, max=Inf, step=0.1) %>%
                                                       shinyInput_label_embed(
                                                         shiny_iconlink() %>%
                                                           bs_embed_popover(title = 'used for plot only')),
-                                                    numericInput('calibrated_Bmax', 'Upper limit of bias factor (on scale you specified)', 4, min=0, max=Inf, step=0.1) %>%
+                                                    
+                                                    numericInput('etaMax', paste( 'X-axis upper limit of publication bias severity (', '\u03b7', ')', sep = ''), 20, min=1, max=Inf, step=0.1) %>%
                                                       shinyInput_label_embed(
                                                         shiny_iconlink() %>%
                                                           bs_embed_popover(title = 'used for plot only')),
-                                                    actionButton(inputId = 'calibrated_plot', label='Generate plot')
+                                                    actionButton(inputId = 'plotClick', label='Generate plot')
                                 ),
                                 
                                 mainPanel(

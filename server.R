@@ -63,7 +63,7 @@ function(input, output, session) {
                yi.name == "" |
                vi.name == "" | 
                is.na(eta) ) {
-            stop( paste("To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the hypothetical publication bias severity, (", '\u03b7', ")", sep = "") )
+            stop( paste("To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the hypothetical publication bias severity (", '\u03b7', ")", sep = "") )
           }
           
           if ( !yi.name %in% names(dat) ) stop( paste("There is no variable called ", yi.name, " in the dataset", sep = "" ) )
@@ -71,7 +71,7 @@ function(input, output, session) {
           if ( !vi.name %in% names(dat) ) stop( paste("There is no variable called ", vi.name, " in the dataset", sep = "" ) )
           
           if ( clustervar.name == "" ) {
-            warning("This analysis assumes no clusters becuase you did not provide a name for a cluster variable.")
+            warning("These analyses assume the estimates are not clustered because you did not provide a name for a cluster variable.")
             cluster = 1:nrow(dat)
           } else {
             
@@ -219,37 +219,133 @@ function(input, output, session) {
     
   }) ## closes calibrated_output
   
-  calibrated_plot <- observeEvent(input$calibrated_plot, {
-    output$calibrated_plot1 = renderPlot({
+  calibrated_plot <- observeEvent(input$plotClick, {
+    
+    # if not using plotly, change to renderPlot
+    output$calibrated_plot1 = renderPlotly({
       withProgress(message="Generating plot...", value=1,{
+        # ### isolate on parameters to not update until action button pressed again
+        # scale = isolate(input$calibrated_scale)
+        # r = isolate(input$calibrated_r)
+        # tail = isolate(input$calibrated_tail)
+        # yi.name = isolate(input$calibrated_yi.name)
+        # vi.name = isolate(input$calibrated_vi.name)
+        # method = isolate(input$calibrated_method)
+        # R = isolate(input$calibrated_R)
+        # dat = isolate(mydata())
+        
+        
         ### isolate on parameters to not update until action button pressed again
-        scale = isolate(input$calibrated_scale)
-        r = isolate(input$calibrated_r)
-        tail = isolate(input$calibrated_tail)
-        yi.name = isolate(input$calibrated_yi.name)
-        vi.name = isolate(input$calibrated_vi.name)
-        method = isolate(input$calibrated_method)
-        R = isolate(input$calibrated_R)
         dat = isolate(mydata())
+        yi.name = isolate(input$yi_name)
+        vi.name = isolate(input$vi_name)
+        clustervar.name = isolate(input$clustervar_name)
+        q = isolate(input$q)
+        model = isolate(input$model)
+        favored.direction = isolate(input$favored_direction)
+        alpha.select = isolate(input$alpha_select)
+        etaMin = isolate(input$etaMin)
+        etaMax = isolate(input$etaMax)
         
-        if(scale=="RR"){
-          q = isolate(log(input$calibrated_q))
-          muB = isolate(log(input$calibrated_muB))
-          Bmin = isolate(log(input$calibrated_Bmin))
-          Bmax = isolate(log(input$calibrated_Bmax))
-          
-        } else {
-          if(scale=="Log-RR"){
-            q = isolate(input$calibrated_q)
-            muB = isolate(input$calibrated_muB)
-            Bmin = isolate(input$calibrated_Bmin)
-            Bmax = isolate(input$calibrated_Bmax)
-          }
-        }
+        # process the input
+        if ( favored.direction == "Positive" ) favor.positive = TRUE
+        if ( favored.direction == "Negative" ) favor.positive = FALSE
         
+        if ( model == "Robust random-effects" ) model = "robust"
+        if ( model == "Fixed-effect" ) model = "fixed"
+        
+
         withCallingHandlers({
           shinyjs::html("calibrated_sens_plot_messages", "")
-          sens_plot(method=method, type="line", q=q, yi.name=yi.name, vi.name=vi.name, Bmin=Bmin, Bmax=Bmax, tail=tail, give.CI=TRUE, R=R, dat=dat )
+          
+          
+          ##### Check for Required Input #####
+          # when the textInput boxes are empty, they default to ""
+          if ( is.null(dat) |
+               yi.name == "" |
+               vi.name == "" ) {
+            stop( paste("To make the plot, must provide at minimum: the dataset, the variable names of estimates and their variances", sep = "") )
+          }
+          
+          if ( !yi.name %in% names(dat) ) stop( paste("There is no variable called ", yi.name, " in the dataset", sep = "" ) )
+          
+          if ( !vi.name %in% names(dat) ) stop( paste("There is no variable called ", vi.name, " in the dataset", sep = "" ) )
+          
+          if ( clustervar.name == "" ) {
+            warning("The estimates and confidence interval in the plot assume the studies' estimates are not clustered because you did not provide a name for a cluster variable.")
+            cluster = 1:nrow(dat)
+          } else {
+            
+            if ( !clustervar.name %in% names(dat) ) stop( paste("There is no variable called ", clustervar.name, " in the dataset", sep = "" ) )
+            
+            cluster = dat[[clustervar.name]]
+          }
+          
+          
+
+          if ( etaMax < etaMin ) stop("Lower limit must be less than upper limit")
+          el = as.list( seq( etaMin, etaMax, .5 ) )
+          
+    
+          # make the plot
+          # get estimates at each value
+          res.list = lapply( el, 
+                             function(x) {
+                               
+                               cat("\n Working on eta = ", x)
+                               
+                               return( corrected_meta( yi = dat[[yi.name]], 
+                                                       vi = dat[[vi.name]],
+                                                       eta = x,
+                                                       clustervar = cluster,
+                                                       model = model,
+                                                       favor.positive = favor.positive ) )
+                             } )
+          
+          
+          re.rob.ests = as.data.frame( do.call( "rbind", res.list ) )
+          
+          # save results because lapply above is slow
+          # because each column is secretly a list, impeding write.csv
+          re.rob.ests = as.data.frame( apply(re.rob.ests, 2, unlist) )
+          
+          ##### Make Plot #####
+          
+          # # simplify breaks a little compared to eta
+          # breaks = c(200, 150, 100, 50, 40, 30, 20, 10, 5)
+          # axis.font.size = 16
+          # axis.label.size = 20
+          # 
+          # if (short.name == "Li") ylabel = "Corrected estimate (HR)"
+          # if (short.name == "Ali") ylabel = "Corrected estimate (BMD % change)"
+          
+          browser()
+          # if removing ggplotly, need to also change renderPlotly above to renderPlot
+          ggplotly(
+            ggplot( ) +
+           
+            # null
+            geom_hline( yintercept = 0, color = "black", lty = 2 ) +
+            
+            geom_ribbon( data = re.rob.ests, aes( x = eta, ymin = lo, ymax = hi ), fill = "black", alpha = .1) +
+            
+            geom_line( data = re.rob.ests, aes( x = eta, y = est ), color = "black", lwd = 1.2) +
+            
+            # having eta in the bquote breaks ggplotly but is fine with regular ggplot:
+            #xlab( bquote( "Severity of hypothetical publication bias" ~ (eta) ) ) +
+            xlab("Severity of hypothetical publication bias") +
+            ylab( "Corrected estimate" ) + 
+            
+  
+            theme_classic()
+            
+            #dynamicTicks = TRUE
+          ) # end ggplotly
+            
+            # theme(axis.title = element_text(size=axis.label.size),
+            #       axis.text = element_text(size=axis.font.size) ) 
+
+          
         },
         message = function(m){
           shinyjs::html(id="calibrated_sens_plot_messages", html=paste0(m$message, '<br>'), add=TRUE)
