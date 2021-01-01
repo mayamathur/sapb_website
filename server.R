@@ -221,8 +221,8 @@ function(input, output, session) {
   
   calibrated_plot <- observeEvent(input$plotClick, {
     
-    # if not using plotly, change to renderPlot
-    output$calibrated_plot1 = renderPlotly({
+    # if using ggplotly, change to "renderPlotly"
+    output$calibrated_plot1 = renderPlot({
       withProgress(message="Generating plot...", value=1,{
         # ### isolate on parameters to not update until action button pressed again
         # scale = isolate(input$calibrated_scale)
@@ -280,8 +280,7 @@ function(input, output, session) {
             
             cluster = dat[[clustervar.name]]
           }
-          
-          
+ 
 
           if ( etaMax < etaMin ) stop("Lower limit must be less than upper limit")
           el = as.list( seq( etaMin, etaMax, .5 ) )
@@ -319,10 +318,8 @@ function(input, output, session) {
           # if (short.name == "Li") ylabel = "Corrected estimate (HR)"
           # if (short.name == "Ali") ylabel = "Corrected estimate (BMD % change)"
           
-          browser()
           # if removing ggplotly, need to also change renderPlotly above to renderPlot
-          ggplotly(
-            ggplot( ) +
+          ggplot( ) +
            
             # null
             geom_hline( yintercept = 0, color = "black", lty = 2 ) +
@@ -332,15 +329,11 @@ function(input, output, session) {
             geom_line( data = re.rob.ests, aes( x = eta, y = est ), color = "black", lwd = 1.2) +
             
             # having eta in the bquote breaks ggplotly but is fine with regular ggplot:
-            #xlab( bquote( "Severity of hypothetical publication bias" ~ (eta) ) ) +
-            xlab("Severity of hypothetical publication bias") +
+            xlab( bquote( "Severity of hypothetical publication bias" ~ (eta) ) ) +
             ylab( "Corrected estimate" ) + 
             
   
             theme_classic()
-            
-            #dynamicTicks = TRUE
-          ) # end ggplotly
             
             # theme(axis.title = element_text(size=axis.label.size),
             #       axis.text = element_text(size=axis.font.size) ) 
@@ -366,7 +359,6 @@ function(input, output, session) {
   }) ## closes calibrated_plot
   
   
-  #bm3
   ### results text 
   output$piped.interpretation.cm = renderText({
     paste( "Corrected meta-analysis estimate (assuming that significant ",
