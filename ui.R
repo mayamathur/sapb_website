@@ -11,19 +11,6 @@
 
 source("startup.R")
 
-### CHANGE THIS ###
-# message to display if non-null true value
-nonnull.mess = 'Note: You are calculating a "non-null" E-value, i.e., an E-value for the minimum
-amount of unmeasured confounding needed to move the estimate and confidence interval
-to your specified true value rather than to the null value.'
-
-### CHANGE THIS ###
-# message to display for OLS
-OLS.mess = 'Note: Using the standard deviation of the outcome yields a conservative approximation
-of the standardized mean difference. For a non-conservative estimate, you could instead use the estimated residual standard deviation from your linear
-regression model. Regardless, the reported E-value for the confidence interval treats the 
-standard deviation as known, not estimated.'
-
 
 navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "navbar",
             
@@ -80,325 +67,225 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                      
                      hr(),
                      
-                     tabsetPanel(
-                       
-                       tabPanel("Robust estimation (homogeneous bias across studies)",
-                                
-                                ##### User Inputs #####
-                                fluidRow(
-                                  tags$style(type = "text/css",
-                                             "label { font-size: 12px; }"
-                                  ),
-                                  ### hidden method input used in server.R
-                                  column(width=12, shinyjs::hidden(selectInput('calibrated_method', 'Method (calibrated or parametric)', choices = c('calibrated'), selected = 'calibrated'))
-                                  ),
-                                  
-                                  shinydashboard::box(width=4,
-                                                      title= h4(strong("Upload meta-analysis dataset")),
-                                                      column(width=10,
-                                                             fileInput('dat', label = 'Upload meta-analysis dataset (csv)', accept=c('text/csv',
-                                                                                                                                     'text/comma-separated-values,text/plain',
-                                                                                                                                     '.csv')) %>%
-                                                               shinyInput_label_embed(
-                                                                 shiny_iconlink() %>%
-                                                                   bs_embed_popover(title = 'A csv file containing study-level point estimates and variance estimates')),
-                                                             
-                                                             textInput('yi_name', "Name of variable in data containing studies' point estimates", placeholder = 'yi') %>%
-                                                               shinyInput_label_embed(
-                                                                 shiny_iconlink() %>%
-                                                                   bs_embed_popover(title = "Point estimates and their variances should be on a scale that is suitable for meta-analysis and on which 0 represents no effect (e.g., log-ratios rather than ratios, Fisher's z rather than Pearson's r, etc.)")),
-                                                             
-                                                             textInput('vi_name', "Name of variable in data containing studies' variance estimates", placeholder = 'vi') %>%
-                                                               shinyInput_label_embed(
-                                                                 shiny_iconlink() %>%
-                                                                   bs_embed_popover(title = "Name of variable in data containing studies' variance estimates")), 
-                                                             
-                                                             textInput('clustervar_name', "Name of variable in data containing cluster indicator (optional)", placeholder = 'paper') %>%
-                                                               shinyInput_label_embed(
-                                                                 shiny_iconlink() %>%
-                                                                   bs_embed_popover(title = "A string or numeric variable with one entry per row. This variable's unique values should indicate unique clusters in the point estimates (e.g., representing journal articles that each contribute multiple estimates). If left blank, the analysis assumes all point estimates are independent."))
-                                                             
-                                                      ),
-                                                      column(width=10,
-                                                             actionButton(inputId = 'analyzeClick', label='Analyze')
-                                                      ) 
-                                  ),
-                                  shinydashboard::box(width=6,
-                                                      title= h4(strong("Specify sensitivity parameters and methods")),
-                                                      
-                                                      
-                                                      column( width=6,
-                                                              
-                                                              
-                                                              numericInput('q', 'Threshold (q) to which to shift \nthe point estimate', 0, min = -Inf, max = Inf, step = 0.01) %>%
-                                                                
-                                                                shinyInput_label_embed(
-                                                                  shiny_iconlink() %>%
-                                                                    bs_embed_popover(title = 'The attenuated value to which to shift the point estimate and its confidence interval. Should be specified on the same scale as the point estimates (e.g., if the estimates are on the log-relative risk scale, then so should q).')),
-                                                              
-                                                              selectInput('model', 'Meta-analysis model', choices = c('Robust random-effects', 'Fixed-effect'), selected = 'Robust random-effects') %>%
-                                                                shinyInput_label_embed(
-                                                                  shiny_iconlink() %>%
-                                                                    bs_embed_popover(title = 'xxx')
-                                                                ),
-                                                              
-                                                              
-                                                              selectInput('favored_direction', 'Direction of effects favored by \npublication bias', choices = c('Positive', 'Negative'), selected = 'Positive') %>%
-                                                                shinyInput_label_embed(
-                                                                  shiny_iconlink() %>%
-                                                                    bs_embed_popover(title = '"Positive" if you would like to assume that publication bias favors significant positive-signed estimates; "negative" if you would like to assume that publication bias favors significant negative-signed estimates.')
-                                                                )
-                                                              
-                                                              
-                                                              
-                                                              
-                                                      ), # closes column
-                                                      
-                                                      column( width=6,
-                                                              
-                                                              numericInput('eta', paste( 'Hypothetical publication bias severity (', '\u03b7', ')', sep = ''), NA, min = 1, max = 200, step = 0.01) %>%
-                                                                shinyInput_label_embed(
-                                                                  shiny_iconlink() %>%
-                                                                    bs_embed_popover(title = 'The number of times more likely an affirmative study is to be published than a nonaffirmative study. Used to adjust point estimate for specified amount of publication bias. \nWorst-case publication bias is when affirmative studies are essentially infinitely more likely to be published than nonaffirmative studies.')),
-                                                              
-                                                              
-                                                              
-                                                              # checkboxInput( 'return_worst_meta', 'Also show worst-case publication bias', TRUE ),                                                           
-                                                              
-                                                              numericInput('alpha_select', 'Two-sided p-value at which publication probability is assumed to change', 0.05, min = 0, max = 1, step = 0.01) %>%
-                                                                
-                                                                shinyInput_label_embed(
-                                                                  shiny_iconlink() %>%
-                                                                    bs_embed_popover(title = 'For most scientific disciplines, this will be 0.05.'))
-                                                              
-                                                              
-                                                      )
-                                                      
-                                                      
-                                  )
-                                ),  ##closes fluidRow
-                                
-                                
-                                ##### Numerical Results #####
-                                hr(),
-                                
-                                h4(strong("Bias-corrected meta-analysis")),
-                                
-                                ### results text ###
-                                wellPanel( textOutput("pipedInterpretation1"),
-                                           #span( htmlOutput("corrected_meta_messages"), style="color:red")
-                                           span( textOutput("num.results.cm") )
-                                           # for "i" information icon, not currently in use
-                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                                ),
-                                
-                                wellPanel( textOutput("pipedInterpretation4"),
-                                           span( textOutput("num.results.worst") )
-                                ),
-                                
-                                ### warnings and messages captured from PublicationBias package
-                                # contains the messages, but doesn't have a line break
-                                mainPanel(
-                                  span( htmlOutput("corrected_meta_messages"), style="color:red"),
-                                  width = 8
-                                ),
-                                
-                                #bm
-                                # has line break, but doesn't contain the messages
-                                # wellPanel(
-                                #   span( htmlOutput("corrected_meta_messages"), style="color:red"), style = "background: white" ),
-                                
-                                
-                                hr(),
-                                h4(strong("\nBias required to explain away results")),
-                                
-                                wellPanel( textOutput("pipedInterpretation2"), span( textOutput("num.results.sval.est") )
-                                           # for "i" information icon, not currently in use
-                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                                ),
-                                wellPanel( textOutput("pipedInterpretation3"), span( textOutput("num.results.sval.ci") )
-                                           # for "i" information icon, not currently in use
-                                           #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                                ),
-                                
-                                # ### warnings and messages captured from PublicationBias package
-                                # mainPanel(
-                                #   span( htmlOutput("corrected_meta_messages"), style="color:red"),
-                                #   width = 8
-                                # ),
-                                
-                                
-                                # messages from svalue()
-                                mainPanel(
-                                  span( htmlOutput("svalue_messages"), style="color:red"),
-                                  width = 8
-                                ),
-                                
-                                hr(),
-                                
-                                ### used for plot only:
-                                #bm4
-                                shinydashboard::box(width=6,
-                                                    title=h4(strong("Range of publication bias to show on plot")),
-                                                    numericInput('etaMin', paste( 'X-axis lower limit of publication bias severity (', '\u03b7', ')', sep = ''), 1, min=1, max=Inf, step=0.1) %>%
-                                                      shinyInput_label_embed(
-                                                        shiny_iconlink() %>%
-                                                          bs_embed_popover(title = 'used for plot only')),
-                                                    
-                                                    numericInput('etaMax', paste( 'X-axis upper limit of publication bias severity (', '\u03b7', ')', sep = ''), 20, min=1, max=Inf, step=0.1) %>%
-                                                      shinyInput_label_embed(
-                                                        shiny_iconlink() %>%
-                                                          bs_embed_popover(title = 'used for plot only')),
-                                                    actionButton(inputId = 'plotClick', label='Generate plot')
-                                ),
-                                
-                                
-                                ##### Line Plot #####
-                                mainPanel(
-                                  plotOutput('calibrated_plot1')
-                                ),
-                                ### plot warnings:
-                                mainPanel(
-                                  span( htmlOutput("calibrated_sens_plot_messages"), style="color:red"), width = 8
-                                )
-                                
-                       ) ### closes tabPanel "Calibrated"
-                       
-                       # tabPanel("Parametric estimation (allows heterogeneous bias)",
-                       #          dashboardBody(
-                       #            tags$style(HTML('
-                       #                              
-                       #                              .box {margin: 0px;}
-                       #                              
-                       #                              ')),
-                       #            
-                       #            fluidRow(
-                       #              tags$style(type = "text/css",
-                       #                         "label { font-size: 12px; }"
-                       #              ),
-                       #              ### hidden method input used in server.R
-                       #              column(width=12, shinyjs::hidden(selectInput('parametric_method', 'Method (calibrated or parametric)', choices = c('parametric'), selected = 'parametric'))
-                       #              ),
-                       #              shinydashboard::box(width=4,
-                       #                                  
-                       #                                  title= h4(strong("Input estimates from confounded meta-analysis")),
-                       #                                  
-                       #                                  column(width=10,
-                       #                                         selectInput('parametric_scale', 'Scale (RR or log-RR)', choices = c('RR', 'Log-RR'), selected = 'RR') %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'The scale (relative risk [RR] or log-relative risk [log-RR] on which you will input the meta-analytic pooled estimate, threshold, and mean bias factor below.'))
-                       #                                         ,
-                       #                                         
-                       #                                         numericInput('parametric_yr', 'Pooled effect size', NA, min = 0, max = Inf, step = 0.1) %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'The usual estimate of the average effect size in the meta-analysis of the potentially confounded studies, prior to any correction for unmeasured confounding')),
-                       #                                         numericInput('parametric_vyr', 'Estimated variance of pooled point estimate (optional)', NA, min = 0, max = Inf, step = 0.01) %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'The estimated variance of the pooled point estimate from confounded meta-analysis. Since the meta-analysis should be conducted with the point estimates on the log scale, you should input the variance as it is reported by your meta-analysis software without taking the log again. If not provided, you will not get confidence intervals for the sensitivity analyses.')),
-                       #                                         numericInput('parametric_t2', paste0('Estimated heterogeneity (', '\u03c4\u00b2', ')'), NA, min = 0, max = Inf, step = 0.1) %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = paste0('The estimated heterogeneity (', '\u03c4\u00b2', ') from the confounded meta-analysis. Since the meta-analysis should be conducted with the point estimates on the log scale, you should input ', '\u03c4\u00b2', ' as it is reported by your meta-analysis software without taking the log again.'))),
-                       #                                         numericInput('parametric_vt2', paste0('Estimated variance of ', '\u03c4\u00b2', '  (optional)'), NA, min = 0, max = Inf, step = 0.01) %>%
-                       #                                           
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = paste0('The estimated variance of (', '\u03c4\u00b2', ') from the confounded meta-analysis. Since the meta-analysis should be conducted with the point estimates on the log scale, you should input ', '\u03c4\u00b2', ' as it is reported by your meta-analysis software without taking the log again.')))
-                       #                                  )
-                       #              ),
-                       #              shinydashboard::box(width=6,
-                       #                                  title= h4(strong("Specify sensitivity parameters and thresholds")),
-                       #                                  column(width=6,
-                       #                                         
-                       #                                         numericInput('parametric_muB', 'Mean bias factor across studies (on scale you specified)', NA, min = 0, max = Inf, step = 0.01) %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'Mean bias factor on the chosen scale (RR or log) across studies. To estimate the proportion of effects stronger than q without correction for unmeasured confounding, set to 1.')),
-                       #                                         numericInput('parametric_prop_t2', paste0('Proportion of heterogeneity (', '\u03c4\u00b2', ') due to variation in confounding bias '), NA, min = 0, max = 1, step = .1) %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = paste0('The proportion of the confounded heterogeneity estimate', '\u03c4\u00b2', ' that is thought to be due to variation across studies in confounding bias rather than to genuine effect heterogeneity. This proportion allows to you to specify how variable you think confounding bias is across studies.'))),
-                       #                                         numericInput('parametric_r', 'Proportion below which strong effects are to be reduced (r)', NA, min = 0, max = 1, step = 0.1) %>%
-                       #                                           
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'For the second two metrics, the value to which the proportion of meaningfully strong effects is to be reduced'))
-                       #                                  ),
-                       #                                  
-                       #                                  column(width=6,       
-                       #                                         
-                       #                                         numericInput('parametric_q', 'Threshold (q) for meaningfully strong effect size (on scale you specified)', NA, min = 0, max = Inf, step = 0.01) %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'Effect size that represents the minimum threshold for a meaningfully strong effect
-                       #                                                              size (on scale you specified)')),
-                       #                                         
-                       #                                         selectInput('parametric_tail', 'Tail', choices = c('above', 'below'), selectize = FALSE, size = 2, selected = 'above') %>%
-                       #                                           shinyInput_label_embed(
-                       #                                             shiny_iconlink() %>%
-                       #                                               bs_embed_popover(title = 'above for the proportion of effects above q; below for the proportion of effects below q')),
-                       #                                         actionButton(inputId = 'parametric_calculate', label='Analyze')
-                       #                                         
-                       #                                  )
-                       #                                  
-                       #              )
-                       #              
-                       #              
-                       #            )), ## closes fluidRow and dashboardBody
-                       #          
-                       #          hr(),
-                       #          
-                       #          ### results text ###
-                       #          
-                       #          wellPanel( textOutput("parametric_results_prop"), span( textOutput("parametric_text1") ),
-                       #                     # for "i" information icon, not currently in use
-                       #                     #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                       #                     span( htmlOutput("parametric_phatwarn"), style="color:red")),
-                       #          wellPanel( textOutput("parametric_results_minbias"), span( textOutput("parametric_text2") )
-                       #                     # for "i" information icon, not currently in use
-                       #                     #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                       #          ),
-                       #          wellPanel( textOutput("parametric_results_minconf"), span( textOutput("parametric_text3") )
-                       #                     # for "i" information icon, not currently in use
-                       #                     #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
-                       #          ),
-                       #          mainPanel(
-                       #            span( htmlOutput("parametric_cm_messages"), style="color:red"), width = 8
-                       #          ),
-                       #          
-                       #          hr(),
-                       #          
-                       #          shinydashboard::box(width=6,
-                       #                              title=h4(strong("Range of bias factors to show on plot")),
-                       #                              numericInput('parametric_Bmin', 'Lower limit of bias factor (Bmin)', 1, min=0.1, max=Inf, step=0.1) %>%
-                       #                                shinyInput_label_embed(
-                       #                                  shiny_iconlink() %>%
-                       #                                    bs_embed_popover(title = 'used for plot only')),
-                       #                              numericInput('parametric_Bmax', 'Upper limit of bias factor (Bmax)', 4, min=0, max=Inf, step=0.1) %>%
-                       #                                shinyInput_label_embed(
-                       #                                  shiny_iconlink() %>%
-                       #                                    bs_embed_popover(title = 'used for plot only')),
-                       #                              actionButton(inputId = 'parametric_plot', label='Generate plot')
-                       #          ),
-                       #          
-                       #          
-                       #          mainPanel(
-                       #            plotOutput('parametric_plot1')
-                       #          ),
-                       #          
-                       #          ### plot warnings:
-                       #          ## jl: all warnings from sens_plot should be output with the below now:
-                       #          mainPanel(
-                       #            span( htmlOutput("parametric_sens_plot_messages"), style="color:red"), width = 8
-                       #          )
-                       #          
-                       # ) ### closes tabPanel "Parametric"
-                     ) ### closes tabsetPanel
                      
-            ), ### closes tabPanel "Fixed sensitivity parameters"
+                     ##### User Inputs #####
+                     
+                     h4(strong("Inputs")),
+                     
+                     fluidRow(
+                       tags$style(type = "text/css",
+                                  "label { font-size: 12px; }"
+                       ),
+                       ### hidden method input used in server.R
+                       column(width=12, shinyjs::hidden(selectInput('calibrated_method', 'Method (calibrated or parametric)', choices = c('calibrated'), selected = 'calibrated'))
+                       ),
+                       
+                       shinydashboard::box(width=4,
+                                           title= h5(strong("Upload meta-analysis dataset")),
+                                           column(width=10,
+                                                  fileInput('dat', label = 'Upload meta-analysis dataset (csv)', accept=c('text/csv',
+                                                                                                                          'text/comma-separated-values,text/plain',
+                                                                                                                          '.csv')) %>%
+                                                    shinyInput_label_embed(
+                                                      shiny_iconlink() %>%
+                                                        bs_embed_popover(title = 'A csv file containing study-level point estimates and variance estimates')),
+                                                  
+                                                  textInput('yi_name', "Name of variable in data containing studies' point estimates", placeholder = 'yi') %>%
+                                                    shinyInput_label_embed(
+                                                      shiny_iconlink() %>%
+                                                        bs_embed_popover(title = "Point estimates and their variances should be on a scale that is suitable for meta-analysis and on which 0 represents no effect (e.g., log-ratios rather than ratios, Fisher's z rather than Pearson's r, etc.)")),
+                                                  
+                                                  textInput('vi_name', "Name of variable in data containing studies' variance estimates", placeholder = 'vi') %>%
+                                                    shinyInput_label_embed(
+                                                      shiny_iconlink() %>%
+                                                        bs_embed_popover(title = "Name of variable in data containing studies' variance estimates")), 
+                                                  
+                                                  textInput('clustervar_name', "Name of variable in data containing cluster indicator (optional)", placeholder = 'paper') %>%
+                                                    shinyInput_label_embed(
+                                                      shiny_iconlink() %>%
+                                                        bs_embed_popover(title = "A string or numeric variable with one entry per row. This variable's unique values should indicate unique clusters in the point estimates (e.g., representing journal articles that each contribute multiple estimates). If left blank, the analysis assumes all point estimates are independent."))
+                                                  
+                                           ),
+                                           column(width=10,
+                                                  actionButton(inputId = 'analyzeClick', label='Analyze')
+                                           ) 
+                       ),
+                       shinydashboard::box(width=6,
+                                           title= h5(strong("Specify sensitivity parameters and methods")),
+                                           
+                                           
+                                           column( width=6,
+                                                   
+                                                   
+                                                   numericInput('q', 'Threshold (q) to which to shift \nthe point estimate', 0, min = -Inf, max = Inf, step = 0.01) %>%
+                                                     
+                                                     shinyInput_label_embed(
+                                                       shiny_iconlink() %>%
+                                                         bs_embed_popover(title = 'The attenuated value to which to shift the point estimate and its confidence interval. Should be specified on the same scale as the point estimates (e.g., if the estimates are on the log-relative risk scale, then so should q).')),
+                                                   
+                                                   selectInput('model', 'Meta-analysis model', choices = c('Robust random-effects', 'Fixed-effect'), selected = 'Robust random-effects') %>%
+                                                     shinyInput_label_embed(
+                                                       shiny_iconlink() %>%
+                                                         bs_embed_popover(title = 'xxx')
+                                                     ),
+                                                   
+                                                   
+                                                   selectInput('favored_direction', 'Direction of effects favored by \npublication bias', choices = c('Positive', 'Negative'), selected = 'Positive') %>%
+                                                     shinyInput_label_embed(
+                                                       shiny_iconlink() %>%
+                                                         bs_embed_popover(title = '"Positive" if you would like to assume that publication bias favors significant positive-signed estimates; "negative" if you would like to assume that publication bias favors significant negative-signed estimates.')
+                                                     )
+                                                   
+                                                   
+                                                   
+                                                   
+                                           ), # closes column
+                                           
+                                           column( width=6,
+                                                   
+                                                   numericInput('eta', paste( 'Hypothetical publication bias severity (', '\u03b7', ')', sep = ''), NA, min = 1, max = 200, step = 0.01) %>%
+                                                     shinyInput_label_embed(
+                                                       shiny_iconlink() %>%
+                                                         bs_embed_popover(title = 'The number of times more likely an affirmative study is to be published than a nonaffirmative study. Used to adjust point estimate for specified amount of publication bias. \nWorst-case publication bias is when affirmative studies are essentially infinitely more likely to be published than nonaffirmative studies.')),
+                                                   
+                                                   
+                                                   
+                                                   # checkboxInput( 'return_worst_meta', 'Also show worst-case publication bias', TRUE ),                                                           
+                                                   
+                                                   numericInput('alpha_select', 'Two-sided p-value at which publication probability is assumed to change', 0.05, min = 0, max = 1, step = 0.01) %>%
+                                                     
+                                                     shinyInput_label_embed(
+                                                       shiny_iconlink() %>%
+                                                         bs_embed_popover(title = 'For most scientific disciplines, this will be 0.05.'))
+                                                   
+                                                   
+                                           )
+                                           
+                                           
+                       )
+                     ),  ##closes fluidRow
+                     
+                     
+                     ##### Numerical Results #####
+                     
+                     verticalLayout(
+                       
+                       hr(),
+                       
+                       h4(strong("Numerical results")),
+                       
+                       h5(strong("Bias-corrected meta-analysis")),
+                       
+                       ### results text ###
+                       wellPanel( textOutput("pipedInterpretation1"),
+                                  #span( htmlOutput("corrected_meta_messages"), style="color:red")
+                                  span( textOutput("num.results.cm") )
+                                  # for "i" information icon, not currently in use
+                                  #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
+                       ),
+                       
+                       wellPanel( textOutput("pipedInterpretation4"),
+                                  span( textOutput("num.results.worst") )
+                       ),
+                       
+                       ### warnings and messages captured from PublicationBias package
+                       # contains the messages, but doesn't have a line break
+                       mainPanel(
+                         span( htmlOutput("corrected_meta_messages"), style="color:red"),
+                         width = 8
+                       ),
+                       
+                       #bm
+                       # has line break, but doesn't contain the messages
+                       # wellPanel(
+                       #   span( htmlOutput("corrected_meta_messages"), style="color:red"), style = "background: white" ),
+                       
+                       
+                       #hr(),
+                       h5(strong("\nBias required to explain away results")),
+                       
+                       wellPanel( textOutput("pipedInterpretation2"), span( textOutput("num.results.sval.est") )
+                                  # for "i" information icon, not currently in use
+                                  #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
+                       ),
+                       wellPanel( textOutput("pipedInterpretation3"), span( textOutput("num.results.sval.ci") )
+                                  # for "i" information icon, not currently in use
+                                  #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
+                       ),
+                       
+                       
+                       # messages from svalue()
+                       mainPanel(
+                         span( htmlOutput("svalue_messages"), style="color:red"),
+                         width = 8
+                       ),
+                       
+                       hr(),
+                       
+                       
+                       ##### Significance funnel plot #####
+                       
+                       h4(strong("Significance funnel plot")),
+                       
+                       # shinydashboard::box(width=6,
+                       #                     title=h5(strong("Range of publication bias to show on plot")),
+                       #                     numericInput('etaMin', paste( 'X-axis lower limit of publication bias severity (', '\u03b7', ')', sep = ''), 1, min=1, max=Inf, step=0.1) %>%
+                       #                       shinyInput_label_embed(
+                       #                         shiny_iconlink() %>%
+                       #                           bs_embed_popover(title = 'used for plot only')),
+                       #                     
+                       #                     numericInput('etaMax', paste( 'X-axis upper limit of publication bias severity (', '\u03b7', ')', sep = ''), 20, min=1, max=Inf, step=0.1) %>%
+                       #                       shinyInput_label_embed(
+                       #                         shiny_iconlink() %>%
+                       #                           bs_embed_popover(title = 'used for plot only')),
+                       #                     actionButton(inputId = 'plotClick', label='Generate plot')
+                       # ),
+                       # 
+                       # 
+                       # mainPanel(
+                       #   plotOutput('calibrated_plot1')
+                       # ),
+                       # ### plot warnings:
+                       # mainPanel(
+                       #   span( htmlOutput("calibrated_sens_plot_messages"), style="color:red"), width = 8
+                       # ),
+                       
+                       
+                       hr(),
+                       
+                       ##### Line Plot #####
+                       
+                       h4(strong("Corrected estimate as a function of publication bias")),
+                       
+                       shinydashboard::box(width=6,
+                                           title=h5(strong("Range of publication bias to show on plot")),
+                                           numericInput('etaMin', paste( 'X-axis lower limit of publication bias severity (', '\u03b7', ')', sep = ''), 1, min=1, max=Inf, step=0.1) %>%
+                                             shinyInput_label_embed(
+                                               shiny_iconlink() %>%
+                                                 bs_embed_popover(title = 'used for plot only')),
+                                           
+                                           numericInput('etaMax', paste( 'X-axis upper limit of publication bias severity (', '\u03b7', ')', sep = ''), 20, min=1, max=Inf, step=0.1) %>%
+                                             shinyInput_label_embed(
+                                               shiny_iconlink() %>%
+                                                 bs_embed_popover(title = 'used for plot only')),
+                                           actionButton(inputId = 'plotClick', label='Generate plot')
+                       ),
+                       
+                       
+                       mainPanel(
+                         plotOutput('calibrated_plot1')
+                       ),
+                       ### plot warnings:
+                       mainPanel(
+                         span( htmlOutput("calibrated_sens_plot_messages"), style="color:red"), width = 8
+                       )
+                       
+                     ), # verticalLayout
+                     
+                     
+                     
+                     
+            ), ### closes tabPanel
             
             tabPanel("More resources",
                      
