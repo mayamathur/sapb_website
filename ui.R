@@ -83,6 +83,8 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                      tabsetPanel(
                        
                        tabPanel("Robust estimation (homogeneous bias across studies)",
+                                
+                                ##### User Inputs #####
                                 fluidRow(
                                   tags$style(type = "text/css",
                                              "label { font-size: 12px; }"
@@ -118,7 +120,7 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                              
                                                       ),
                                                       column(width=10,
-                                                             actionButton(inputId = 'analyze_button', label='Analyze')
+                                                             actionButton(inputId = 'analyzeClick', label='Analyze')
                                                       ) 
                                   ),
                                   shinydashboard::box(width=6,
@@ -161,7 +163,7 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                               
                                                               
                                                               
-                                                              checkboxInput( 'return_worst_meta', 'Also show worst-case publication bias', TRUE ),                                                           
+                                                              # checkboxInput( 'return_worst_meta', 'Also show worst-case publication bias', TRUE ),                                                           
                                                               
                                                               numericInput('alpha_select', 'Two-sided p-value at which publication probability is assumed to change', 0.05, min = 0, max = 1, step = 0.01) %>%
                                                                 
@@ -176,7 +178,11 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                   )
                                 ),  ##closes fluidRow
                                 
+                                
+                                ##### Numerical Results #####
                                 hr(),
+                                
+                                h4(strong("Bias-corrected meta-analysis")),
                                 
                                 ### results text ###
                                 wellPanel( textOutput("pipedInterpretation1"),
@@ -186,12 +192,25 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                            #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
                                 ),
                                 
-                                #bm: want to have corrected_meta_messages appear here
-                                # doesn't even work if I just use textOutput("piped.interpretation.cm") in here...?
-                                #wellPanel(  ),
+                                wellPanel( textOutput("pipedInterpretation4"),
+                                           span( textOutput("num.results.worst") )
+                                ),
+                                
+                                ### warnings and messages captured from PublicationBias package
+                                # contains the messages, but doesn't have a line break
+                                mainPanel(
+                                  span( htmlOutput("corrected_meta_messages"), style="color:red"),
+                                  width = 8
+                                ),
+                                
+                                #bm
+                                # has line break, but doesn't contain the messages
+                                # wellPanel(
+                                #   span( htmlOutput("corrected_meta_messages"), style="color:red"), style = "background: white" ),
                                 
                                 
-                                
+                                hr(),
+                                h4(strong("\nBias required to explain away results")),
                                 
                                 wellPanel( textOutput("pipedInterpretation2"), span( textOutput("num.results.sval.est") )
                                            # for "i" information icon, not currently in use
@@ -202,22 +221,18 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                            #, shiny_iconlink() %>% bs_embed_popover(title = "PLACEHOLDER INFORMATION ICON")
                                 ),
                                 
-                                ### warnings and messages captured from PublicationBias package
-                                mainPanel(
-                                  span( htmlOutput("corrected_meta_messages"), style="color:red"),
-                                  width = 8
-                                ),
+                                # ### warnings and messages captured from PublicationBias package
+                                # mainPanel(
+                                #   span( htmlOutput("corrected_meta_messages"), style="color:red"),
+                                #   width = 8
+                                # ),
                                 
                                 
                                 # messages from svalue()
-                                # save as a placeholder, but not in use because svalue() has only one message
-                                #  it can issue (about CI already containing q), and the website handles this 
-                                #  in the piped results string
-                                
-                                # mainPanel(
-                                #   span( htmlOutput("svalue_messages"), style="color:red"),
-                                #   width = 8
-                                # ),
+                                mainPanel(
+                                  span( htmlOutput("svalue_messages"), style="color:red"),
+                                  width = 8
+                                ),
                                 
                                 hr(),
                                 
@@ -237,6 +252,8 @@ navbarPage( "Sensitivity analysis for publication bias in meta-analyses", id = "
                                                     actionButton(inputId = 'plotClick', label='Generate plot')
                                 ),
                                 
+                                
+                                ##### Line Plot #####
                                 mainPanel(
                                   plotOutput('calibrated_plot1')
                                 ),

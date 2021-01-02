@@ -4,7 +4,7 @@ source("startup.R")
 function(input, output, session) {
   
   
-  # read in uploaded dataset
+  ##### Reactively Read in Uploaded Dataset #####
   mydata <- reactive({
     inFile <- input$dat
     
@@ -14,17 +14,8 @@ function(input, output, session) {
     tbl <- read.csv(inFile$datapath, stringsAsFactors = FALSE)
   })
   
-  # # set defaults for plot Bmin and Bmax depending on chosen scale
-  # observeEvent(input$calibrated_scale, {
-  #   scale_Bmin_default <- ifelse(input$calibrated_scale=="Log-RR", 0, 1)
-  #   scale_Bmax_default <- ifelse(input$calibrated_scale=="Log-RR", log(4), 4)
-  #   updateNumericInput(session, "calibrated_Bmin", value=scale_Bmin_default)
-  #   updateNumericInput(session, "calibrated_Bmax", value=scale_Bmax_default)
-  # })
-  
-  # collect user's input every time the "Analyze" button is pressed
-  calibrated_output <- observeEvent(input$analyze_button, {
-    
+  ##### Reactively Analyze User's Input on "Analyze" Click #####
+  calibrated_output <- observeEvent(input$analyzeClick, {
     
     ### isolate on parameters to not update until action button pressed again
     dat = isolate(mydata())
@@ -45,19 +36,17 @@ function(input, output, session) {
     if ( model == "Robust random-effects" ) model = "robust"
     if ( model == "Fixed-effect" ) model = "fixed"
     
-    ##### Check for required input #####
-    # if ( yi.name == "" ) stop("Must provide yi.name (from step1)")
-    # if ( vi.name == "" ) stop("Must provide yi.name (fromstep1)")]
-    
-    
     
     ##### Call corrected_meta #####
     res_corrected_meta <- reactive({
-      withProgress(message="Calculating corrected_meta...", value=1,{
+      withProgress(message="Calculating corrected estimate...", value=1,{
         
         withCallingHandlers({
           shinyjs::html("corrected_meta_messages", "")
           
+          
+          ##### Check for required input
+          # needs to stay within the withCallingHandlers
           # when the textInput boxes are empty, they default to ""
           if ( is.null(dat) |
                yi.name == "" |
@@ -86,7 +75,6 @@ function(input, output, session) {
                           vi = dat[[vi.name]],
                           eta = eta,
                           model = model,
-                          # @introduce this later
                           clustervar = cluster,
                           selection.tails = 1,  # @could make this a user-specified option
                           favor.positive = favor.positive,
@@ -109,11 +97,13 @@ function(input, output, session) {
     
     ##### Call svalue #####
     res_svalue <- reactive({
-      withProgress(message="Calling svalue()...", value=1,{
+      withProgress(message="Calculating bias required to make shift...", value=1,{
         
         withCallingHandlers({
           shinyjs::html("svalue_messages", "")
           
+          ##### Check for required input
+          # needs to stay within the withCallingHandlers
           # when the textInput boxes are empty, they default to ""
           if ( is.null(dat) |
                yi.name == "" |
@@ -122,11 +112,20 @@ function(input, output, session) {
             stop( "To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the threshold (q)" )
           }
           
+          if ( clustervar.name == "" ) {
+            warning("These analyses assume the estimates are not clustered because you did not provide a name for a cluster variable.")
+            cluster = 1:nrow(dat)
+          } else {
+            
+            if ( !clustervar.name %in% names(dat) ) stop( paste("There is no variable called ", clustervar.name, " in the dataset", sep = "" ) )
+            
+            cluster = dat[[clustervar.name]]
+          }
+          
           svalue( yi = dat[[yi.name]],
                   vi = dat[[vi.name]],
                   q = q,
-                  # @introduce this later
-                  #clustervar = clustervar,
+                  clustervar = cluster,
                   model = model,
                   favor.positive = favor.positive,
                   alpha.select = alpha.select,
@@ -161,7 +160,44 @@ function(input, output, session) {
     }) ## closes text.cm
     
     
-    ##### Organize svalue output into string #####
+    ##### Organize svalue outputs into strings #####
+    
+    output$num.results.worst = renderText({
+      
+      res <- req( res_svalue() )
+      
+      # this is a string because could be "Not possible"
+      worst = res$meta.worst
+      
+      # worst could be NULL if there were too few nonaffirmative studies
+      if ( !is.null(worst) ) {
+        # meta.worst has a different structure depending on the model chosen
+        if ( model == "fixed" ) {
+          return( paste( round( worst$b, 2 ),
+                         " [",
+                         round( worst$ci.lb, 2 ),
+                         ", ",
+                         round( worst$ci.ub, 2 ), 
+                         "]",
+                         sep = "" ) )
+        } else if ( model == "robust" ) {
+          return( paste( round( worst$b, 2 ),
+                         " [",
+                         round( worst$reg_table$CI.L, 2 ),
+                         ", ",
+                         round( worst$reg_table$CI.U, 2 ), 
+                         "]",
+                         sep = "" ) )
+        }
+      }
+      
+      if ( is.null(worst) ) {
+        return("--")
+      }
+      
+      
+    }) ## closes text.sval.est
+    
     output$num.results.sval.est = renderText({
       
       res <- req( res_svalue() )
@@ -297,7 +333,8 @@ function(input, output, session) {
                                                        eta = x,
                                                        clustervar = cluster,
                                                        model = model,
-                                                       favor.positive = favor.positive ) )
+                                                       favor.positive = favor.positive,
+                                                       alpha.select = alpha.select ) )
                              } )
           
           
@@ -358,30 +395,29 @@ function(input, output, session) {
   }) ## closes calibrated_plot
   
   
-  #bm
   
   ##### Reactive Interpretation Strings #####
   # wait until Analyze button is clicked, then update the text string
   # this is to avoid updating the string while the previous numerical results are still displayed,
   #  before the new analysis has been performed
-  getPipedInterpretation1 = eventReactive(input$analyze_button, {
-        # avoid piping in "NA" if eta hasn't been filled in
-        etaString = ifelse( is.na(input$eta), "eta", input$eta )
-
-        paste( "Corrected meta-analysis estimate (assuming that significant ",
-               tolower( input$favored_direction ),
-               " results are ",
-               etaString,
-               " times more likely to be published): ",
-               sep = "" )
-  
+  getPipedInterpretation1 = eventReactive(input$analyzeClick, {
+    # avoid piping in "NA" if eta hasn't been filled in
+    etaString = ifelse( is.na(input$eta), "eta", input$eta )
+    
+    paste( "Corrected meta-analysis estimate (assuming that significant ",
+           tolower( input$favored_direction ),
+           " results are ",
+           etaString,
+           " times more likely to be published): ",
+           sep = "" )
+    
   })
   output$pipedInterpretation1 = renderText({
     getPipedInterpretation1()
   })
   
   
-  getPipedInterpretation2 = eventReactive(input$analyze_button, {
+  getPipedInterpretation2 = eventReactive(input$analyzeClick, {
     # avoid piping in "NA" if eta hasn't been filled in
     qString = ifelse( is.na(input$q), "q", input$q )
     
@@ -399,7 +435,7 @@ function(input, output, session) {
     getPipedInterpretation2()
   })
   
-  getPipedInterpretation3 = eventReactive(input$analyze_button, {
+  getPipedInterpretation3 = eventReactive(input$analyzeClick, {
     # avoid piping in "NA" if eta hasn't been filled in
     qString = ifelse( is.na(input$q), "q", input$q )
     
@@ -415,6 +451,15 @@ function(input, output, session) {
   output$pipedInterpretation3 = renderText({
     getPipedInterpretation3()
   })
-
+  
+  
+  getPipedInterpretation4 = eventReactive(input$analyzeClick, {
+    "Estimate under worst-case publication bias: "
+    
+  })
+  output$pipedInterpretation4 = renderText({
+    getPipedInterpretation4()
+  })
+  
   
 } ## closes server.R function

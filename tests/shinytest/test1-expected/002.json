@@ -1,0 +1,125 @@
+{
+  "input": {
+    "alpha_select": 0.5,
+    "analyzeClick": 1,
+    "calibrated_method": "calibrated",
+    "clustervar_name": "",
+    "dat": {
+      "name": [
+        "kodama_prepped.csv"
+      ],
+      "size": [
+        1014
+      ],
+      "type": [
+        "text/csv"
+      ],
+      "datapath": [
+        "0.csv"
+      ]
+    },
+    "eta": null,
+    "etaMax": 20,
+    "etaMin": 1,
+    "favored_direction": "Positive",
+    "model": "Robust random-effects",
+    "navbar": "Conduct sensitivity analysis",
+    "plotClick": 1,
+    "q": 0,
+    "show_instructions_2": false,
+    "vi_name": "vi",
+    "yi_name": "yi"
+  },
+  "output": {
+    "calibrated_plot1": {
+      "src": "[image data sha1: 82c1e0595b98c442c3364fd39d1c62703a0ec745]",
+      "width": 611,
+      "height": 400,
+      "coordmap": {
+        "panels": [
+          {
+            "panel": 1,
+            "row": 1,
+            "col": 1,
+            "panel_vars": {
+
+            },
+            "log": {
+              "x": null,
+              "y": null
+            },
+            "domain": {
+              "left": 0.0499999999999999,
+              "right": 20.95,
+              "bottom": -0.71681060112864,
+              "top": 1.58143738946684
+            },
+            "mapping": {
+              "x": null,
+              "y": null,
+              "yintercept": "yintercept"
+            },
+            "range": {
+              "left": 38.5033212687871,
+              "right": 605.520547945205,
+              "bottom": 363.720848094946,
+              "top": 5.47945205479452
+            }
+          }
+        ],
+        "dims": {
+          "width": 611,
+          "height": 400
+        }
+      }
+    },
+    "num.results.cm": {
+      "message": "To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the hypothetical publication bias severity (η)",
+      "call": [
+        "withCallingHandlers({",
+        "    shinyjs::html(\"corrected_meta_messages\", \"\")",
+        "    if (is.null(dat) | yi.name == \"\" | vi.name == \"\" | is.na(eta)) {",
+        "        stop(paste(\"To calculate this metric, must provide at minimum: the dataset, the variable names of estimates and their variances, and the hypothetical publication bias severity (\", ",
+        "            \"η\", \")\", sep = \"\"))",
+        "    }",
+        "    if (!yi.name %in% names(dat)) ",
+        "        stop(paste(\"There is no variable called \", yi.name, \" in the dataset\", ",
+        "            sep = \"\"))",
+        "    if (!vi.name %in% names(dat)) ",
+        "        stop(paste(\"There is no variable called \", vi.name, \" in the dataset\", ",
+        "            sep = \"\"))",
+        "    if (clustervar.name == \"\") {",
+        "        warning(\"These analyses assume the estimates are not clustered because you did not provide a name for a cluster variable.\")",
+        "        cluster = 1:nrow(dat)",
+        "    }",
+        "    else {",
+        "        if (!clustervar.name %in% names(dat)) ",
+        "            stop(paste(\"There is no variable called \", clustervar.name, ",
+        "                \" in the dataset\", sep = \"\"))",
+        "        cluster = dat[[clustervar.name]]",
+        "    }",
+        "    corrected_meta(yi = dat[[yi.name]], vi = dat[[vi.name]], ",
+        "        eta = eta, model = model, clustervar = cluster, selection.tails = 1, ",
+        "        favor.positive = favor.positive, alpha.select = alpha.select)",
+        "}, message = function(m) {",
+        "    shinyjs::html(id = \"corrected_meta_messages\", html = paste0(m$message, ",
+        "        \"<br>\"), add = TRUE)",
+        "}, warning = function(m) {",
+        "    shinyjs::html(id = \"corrected_meta_messages\", html = paste0(m$message, ",
+        "        \"<br>\"), add = TRUE)",
+        "})"
+      ],
+      "type": null
+    },
+    "num.results.sval.ci": "30.47",
+    "num.results.sval.est": "No amount of publication bias favoring significant positive results could attenuate the point estimate to q = 0. \n\nIn that sense, the meta-analysis is highly robust to publication bias.",
+    "num.results.worst": "--",
+    "pipedInterpretation1": "Corrected meta-analysis estimate (assuming that significant positive results are eta times more likely to be published): ",
+    "pipedInterpretation2": "Factor by which publication bias would need to favor significant positive results in order to  reduce the meta-analysis estimate to 0:",
+    "pipedInterpretation3": "Factor by which publication bias would need to favor significant positive results in order to  shift the meta-analysis confidence interval to include 0:",
+    "pipedInterpretation4": "Estimate under worst-case publication bias: "
+  },
+  "export": {
+
+  }
+}
